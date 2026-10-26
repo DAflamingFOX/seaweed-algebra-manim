@@ -9,4 +9,7 @@ wheels/
 # Virtual environments
 .venv
 
-media
+# Only keep gif files from generated media
+**/media/**
+!**/media/**/
+!**/media/**/*.gif

@@ -13,3 +13,5 @@ wheels/
 **/media/**
 !**/media/**/
 !**/media/**/*.gif
+
+.vscode

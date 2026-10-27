@@ -187,9 +187,16 @@ class MeanderElement(VGroup):
         num_collapsing = a1 - b1
 
         return AnimationGroup(
-            *(node.move_along_arc(is_top=True) for node in self.nodes[:num_collapsing]),
+            *(
+                node.move_along_arc(is_top=True)
+                if node.get_arc(is_top=True) is not None
+                else node.rotate_in_place(is_top=True)
+                for node in self.nodes[:num_collapsing]
+            ),
             *(
                 node.move_along_arc(is_top=False)
+                if node.get_arc(is_top=False) is not None
+                else node.rotate_in_place(is_top=False)
                 for node in self.nodes[num_collapsing:b1]
             ),
             **kwargs,

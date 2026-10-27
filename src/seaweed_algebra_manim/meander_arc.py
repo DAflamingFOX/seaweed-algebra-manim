@@ -75,6 +75,18 @@ class MeanderNode(Dot):
 
         return UpdateFromAlphaFunc(self, _move_and_rotate)
 
+    def rotate_in_place(self, is_top: bool = False) -> Animation:
+        """
+        Rotates this node's tangent vector in place by 180 degrees.
+        """
+        start_theta = float(self.tangent_angle)
+        delta_theta = -PI
+
+        def _rotate(mob: Any, alpha: float):
+            mob.tangent_angle = start_theta + alpha * delta_theta
+
+        return UpdateFromAlphaFunc(self, _rotate)
+
 
 class MeanderArc(VMobject):
     def __init__(

@@ -1,7 +1,7 @@
 from manim import *  # pyright: ignore[reportWildcardImportFromLibrary]
 from seaweed_algebra import Meander
 
-from manim_meander_winding import MeanderElement
+from seaweed_algebra_manim import MeanderElement
 
 
 class MeanderWindDown(MovingCameraScene):

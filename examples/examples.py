@@ -1,7 +1,7 @@
 from manim import MovingCameraScene
 from seaweed_algebra import Meander
 
-from manim_meander_winding import MeanderElement
+from seaweed_algebra_manim import MeanderElement
 
 
 class BaseMeanderScene(MovingCameraScene):

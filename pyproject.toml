@@ -1,5 +1,5 @@
 [project]
-name = "manim-meander-winding"
+name = "seaweed-algebra-manim"
 version = "0.1.0"
 description = "Manim animations for seaweed algebra meander winding moves."
 readme = "README.md"
@@ -13,6 +13,10 @@ dependencies = [
     "manim>=0.22.0",
     "seaweed-algebra>=0.0.7",
 ]
+[project.urls]
+Homepage = "https://github.com/daflamingfox/seaweed-algebra-manim"
+Repository = "https://github.com/daflamingfox/seaweed-algebra-manim"
+Issues = "https://github.com/daflamingfox/seaweed-algebra-manim/issues"
 [project.optional-dependencies]
 notebook = [
     "jupyterlab>=4.0.0",

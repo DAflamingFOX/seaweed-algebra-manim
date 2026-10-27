@@ -1,4 +1,4 @@
-# Manim Meander Winding
+# Seaweed Algebra Manim
 
 Manim animations for visualizing meander winding moves in seaweed algebras.
 
@@ -57,16 +57,16 @@ Below, `Meander([17, 3], [10, 4, 6])` winds down across 6 successive moves: Rota
 ### Using `uv`
 
 ```bash
-git clone https://github.com/daflamingfox/manim-meander-winding.git
-cd manim-meander-winding
+git clone https://github.com/daflamingfox/seaweed-algebra-manim.git
+cd seaweed-algebra-manim
 uv sync
 ```
 
 ### Using `pip`
 
 ```bash
-git clone https://github.com/daflamingfox/manim-meander-winding.git
-cd manim-meander-winding
+git clone https://github.com/daflamingfox/seaweed-algebra-manim.git
+cd seaweed-algebra-manim
 pip install -e .
 ```
 

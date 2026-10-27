@@ -1309,34 +1309,6 @@ wheels = [
 ]
 
 [[package]]
-name = "manim-meander-winding"
-version = "0.1.0"
-source = { editable = "." }
-dependencies = [
-    { name = "manim" },
-    { name = "seaweed-algebra" },
-]
-
-[package.optional-dependencies]
-dev = [
-    { name = "pyright" },
-    { name = "ruff" },
-]
-notebook = [
-    { name = "jupyterlab" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "jupyterlab", marker = "extra == 'notebook'", specifier = ">=4.0.0" },
-    { name = "manim", specifier = ">=0.22.0" },
-    { name = "pyright", marker = "extra == 'dev'", specifier = ">=1.1.390" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.9.0" },
-    { name = "seaweed-algebra", specifier = ">=0.0.7" },
-]
-provides-extras = ["notebook", "dev"]
-
-[[package]]
 name = "manimpango"
 version = "0.7.0"
 source = { registry = "https://pypi.org/simple" }
@@ -2649,6 +2621,34 @@ sdist = { url = "https://files.pythonhosted.org/packages/91/2c/61988cf9e6f98e735
 wheels = [
     { url = "https://files.pythonhosted.org/packages/a8/00/95db5cf5a91942051d03c4ead13fbdb476425b18dfd57d60439fbe38b57b/seaweed_algebra-0.0.7-py3-none-any.whl", hash = "sha256:71b080008d8db0af3faad4888b8520298118e7e173492020c54cf7189af5da43", size = 14646, upload-time = "2026-08-13T20:01:02.413Z" },
 ]
+
+[[package]]
+name = "seaweed-algebra-manim"
+version = "0.1.0"
+source = { editable = "." }
+dependencies = [
+    { name = "manim" },
+    { name = "seaweed-algebra" },
+]
+
+[package.optional-dependencies]
+dev = [
+    { name = "pyright" },
+    { name = "ruff" },
+]
+notebook = [
+    { name = "jupyterlab" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "jupyterlab", marker = "extra == 'notebook'", specifier = ">=4.0.0" },
+    { name = "manim", specifier = ">=0.22.0" },
+    { name = "pyright", marker = "extra == 'dev'", specifier = ">=1.1.390" },
+    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.9.0" },
+    { name = "seaweed-algebra", specifier = ">=0.0.7" },
+]
+provides-extras = ["notebook", "dev"]
 
 [[package]]
 name = "send2trash"

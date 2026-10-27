@@ -145,7 +145,6 @@ class MeanderElement(VGroup):
             node.top_arc = None
             node.btm_arc = None
             node.target = None  # type: ignore[assignment]
-
         # 5. Normalize flipped arcs and re-register with their nodes
         self.top_arcs = []
         self.btm_arcs = []
@@ -248,7 +247,6 @@ class MeanderElement(VGroup):
 
         for mob in list(removing_arcs) + list(removing_nodes):
             self._retire_mobject(mob, scene=scene)
-
         self.nodes = self.nodes[len(removing_nodes) :]
         self.top_arcs = [arc for arc in self.top_arcs if arc not in removing_arc_set]
         self.btm_arcs = [arc for arc in self.btm_arcs if arc not in removing_arc_set]
@@ -287,9 +285,11 @@ class MeanderElement(VGroup):
         )
 
     def _get_camera_width(self) -> float:
-        top_max = max(self.meander.top_blocks, default=1)
-        btm_max = max(self.meander.bottom_blocks, default=1)
-        return max(top_max, btm_max) * 2.0
+        max_blocks = max(
+            max(self.meander.top_blocks, default=1),
+            max(self.meander.bottom_blocks, default=1),
+        )
+        return max(max_blocks * 2, self.meander.n + 2)
 
     def fit_camera(self, scene: Scene) -> None:
         scene.camera.frame.move_to(self.get_center())  # type: ignore

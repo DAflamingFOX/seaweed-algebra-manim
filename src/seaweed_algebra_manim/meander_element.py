@@ -131,6 +131,7 @@ class MeanderElement(VGroup):
             node.reset_tangent()
             node.top_arc = None
             node.btm_arc = None
+            node.target = None  # type: ignore[assignment]
 
         # 5. Normalize flipped arcs and re-register with their nodes
         self.top_arcs = []

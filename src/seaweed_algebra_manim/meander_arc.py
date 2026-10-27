@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Any
+import copy
+from typing import Any, Self
 
 import numpy as np
 from manim import *  # pyright: ignore[reportWildcardImportFromLibrary]
@@ -16,6 +17,18 @@ class MeanderNode(Dot):
         # Angle of the "upward" tangent vector at this node (default: PI/2 = UP).
         # Top arcs exit along +T(tangent_angle); bottom arcs exit along -T(tangent_angle).
         self.tangent_angle: float = PI / 2
+
+    def __deepcopy__(self, memo: dict[int, Any]) -> Self:
+        cls = self.__class__
+        result = cls.__new__(cls)
+        memo[id(self)] = result
+        for k, v in self.__dict__.items():
+            if k in ("top_arc", "btm_arc"):
+                setattr(result, k, None)
+            else:
+                setattr(result, k, copy.deepcopy(v, memo))
+        result.original_id = str(id(self))
+        return result
 
     def get_arc(self, is_top: bool) -> MeanderArc | None:
         return self.top_arc if is_top else self.btm_arc

@@ -7,6 +7,17 @@ from seaweed_algebra import Meander
 from .meander_arc import MeanderArc, MeanderNode
 
 
+def _clean_empty_scene_mobjects(scene: Scene) -> None:
+    cam_frame = getattr(scene.camera, "frame", None)
+    empty = [
+        m
+        for m in scene.mobjects
+        if not m.submobjects and len(m.points) == 0 and m is not cam_frame
+    ]
+    if empty:
+        scene.remove(*empty)
+
+
 class MeanderFlip(Rotate):
     def __init__(self, mobject: MeanderElement, **kwargs):
         kwargs.setdefault("angle", PI)
@@ -66,17 +77,19 @@ class MeanderElement(VGroup):
 
         return arcs
 
-    def _retire_mobject(self, mob: Mobject):
+    def _retire_mobject(self, mob: Mobject, scene: Scene | None = None):
         """
-        Safely removes a mobject from this VGroup AND hides it completely in case
-        Manim's Scene promoted it to a top-level mobject during self.play().
+        Safely removes a mobject from this VGroup AND the scene, clears updaters,
+        and hides it.
         """
         mob.clear_updaters()
         mob.set_opacity(0)
         mob.clear_points()
         self.remove(mob)
+        if scene is not None:
+            scene.remove(mob)
 
-    def cleanup_after_collapse(self, tol: float = 1e-2):
+    def cleanup_after_collapse(self, tol: float = 1e-2, scene: Scene | None = None):
         """
         Call right after self.play(...) of a collapse/rotation move.
         1. Retires all collapsed arcs with coincident endpoints.
@@ -94,7 +107,7 @@ class MeanderElement(VGroup):
                 np.linalg.norm(arc.left_node.get_center() - arc.right_node.get_center())
             )
             if dist < tol:
-                self._retire_mobject(arc)
+                self._retire_mobject(arc, scene=scene)
             else:
                 surviving_arcs.append(arc)
 
@@ -110,7 +123,7 @@ class MeanderElement(VGroup):
             if merged_target is not None:
                 for arc in surviving_arcs:
                     arc.replace_node(node, merged_target)
-                self._retire_mobject(node)
+                self._retire_mobject(node, scene=scene)
             else:
                 surviving_nodes.append(node)
 
@@ -121,7 +134,7 @@ class MeanderElement(VGroup):
                 np.linalg.norm(arc.left_node.get_center() - arc.right_node.get_center())
             )
             if arc.left_node is arc.right_node or dist < tol:
-                self._retire_mobject(arc)
+                self._retire_mobject(arc, scene=scene)
             else:
                 active_arcs.append(arc)
         surviving_arcs = active_arcs
@@ -218,7 +231,7 @@ class MeanderElement(VGroup):
             **kwargs,
         )
 
-    def cleanup_after_component_deletion(self) -> None:
+    def cleanup_after_component_deletion(self, scene: Scene | None = None) -> None:
         """
         Retires the deleted first a1/b1 nodes and arcs, adjusts internal lists,
         and re-indexes surviving nodes.
@@ -227,7 +240,7 @@ class MeanderElement(VGroup):
         removing_arc_set = set(removing_arcs)
 
         for mob in list(removing_arcs) + list(removing_nodes):
-            self._retire_mobject(mob)
+            self._retire_mobject(mob, scene=scene)
 
         self.nodes = self.nodes[len(removing_nodes) :]
         self.top_arcs = [arc for arc in self.top_arcs if arc not in removing_arc_set]
@@ -321,10 +334,11 @@ class MeanderElement(VGroup):
         wait_time: float = 0.5,
     ) -> None:
         scene.play(Succession(action_anim, Wait(wait_time)))
-        self.cleanup_after_collapse()
+        self.cleanup_after_collapse(scene=scene)
         self.meander = next_meander
         if self.nodes:
             scene.play(self.compact_and_fit_camera_animation(scene, run_time=run_time))
+        _clean_empty_scene_mobjects(scene)
 
     def rotation_contraction_animation(
         self,
@@ -363,10 +377,11 @@ class MeanderElement(VGroup):
         scene.play(
             Succession(self.component_deletion(run_time=run_time), Wait(wait_time))
         )
-        self.cleanup_after_component_deletion()
+        self.cleanup_after_component_deletion(scene=scene)
         self.meander, _ = self.meander._component_deletion()
         if self.nodes:
             scene.play(self.compact_and_fit_camera_animation(scene, run_time=1.5))
+        _clean_empty_scene_mobjects(scene)
 
     def flip_animation(
         self,
@@ -377,6 +392,7 @@ class MeanderElement(VGroup):
         self.meander = self.meander._flip()
         self.cleanup_after_flip()
         scene.play(self.fit_camera_animation(scene))
+        _clean_empty_scene_mobjects(scene)
 
     def block_elimination_animation(
         self,

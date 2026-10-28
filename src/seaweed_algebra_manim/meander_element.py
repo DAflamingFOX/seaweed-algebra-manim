@@ -184,22 +184,22 @@ class MeanderElement(VGroup):
         a1 = self.meander.top_blocks[0]
         b1 = self.meander.bottom_blocks[0]
         num_collapsing = a1 - b1
+        center_b1 = (b1 - 1) / 2.0
 
-        return AnimationGroup(
-            *(
-                node.move_along_arc(is_top=True)
-                if node.get_arc(is_top=True) is not None
-                else node.rotate_in_place(is_top=True)
-                for node in self.nodes[:num_collapsing]
-            ),
-            *(
-                node.move_along_arc(is_top=False)
-                if node.get_arc(is_top=False) is not None
-                else node.rotate_in_place(is_top=False)
-                for node in self.nodes[num_collapsing:b1]
-            ),
-            **kwargs,
-        )
+        anims: list[Animation] = [
+            node.move_along_arc(is_top=True) for node in self.nodes[:num_collapsing]
+        ]
+
+        for i in range(num_collapsing, b1):
+            node = self.nodes[i]
+            if i < center_b1:
+                anims.append(node.move_along_arc(is_top=True))
+            elif i == center_b1:
+                anims.append(node.rotate_in_place())
+            else:
+                anims.append(node.move_along_arc(is_top=False))
+
+        return AnimationGroup(*anims, **kwargs)
 
     def pure_contraction(self, **kwargs) -> AnimationGroup:
         b1 = self.meander.bottom_blocks[0]

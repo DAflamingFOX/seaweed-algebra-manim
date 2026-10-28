@@ -75,7 +75,7 @@ class MeanderNode(Dot):
 
         return UpdateFromAlphaFunc(self, _move_and_rotate)
 
-    def rotate_in_place(self, is_top: bool = False) -> Animation:
+    def rotate_in_place(self) -> Animation:
         """
         Rotates this node's tangent vector in place by 180 degrees.
         """

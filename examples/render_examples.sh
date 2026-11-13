@@ -6,6 +6,9 @@ cd "$(dirname "$0")"
 # Full Wind-Down
 uv run manim -qm --disable_caching --format=gif -o full_wind_down examples.py FullWindDown
 
+# Homotopy Extraction
+uv run manim -qm --disable_caching --format=gif -o homotopy_extraction examples.py HomotopyExtraction
+
 # Rotation Contraction
 uv run manim -qm --disable_caching --format=gif -o rotation_contraction-reference examples.py RotationContractionReference
 uv run manim -qm --disable_caching --format=gif -o rotation_contraction-secondary examples.py RotationContractionSecondary

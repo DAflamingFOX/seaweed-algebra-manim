@@ -46,6 +46,10 @@ Below, `Meander([17, 3], [10, 4, 6])` winds down across 6 successive moves: Rota
 
 ### Additional Animations
 
+#### Homotopy extraction
+
+![Homotopy Extraction](./examples/media/videos/examples/720p30/homotopy_extraction.gif)
+
 #### Show blocks
 
 ![Show Blocks](./examples/media/videos/examples/720p30/show_blocks.gif)

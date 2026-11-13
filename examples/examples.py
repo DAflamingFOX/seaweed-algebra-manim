@@ -29,6 +29,13 @@ class FullWindDown(BaseMeanderScene):
     action = "wind_down"
 
 
+# Homotopy Extraction
+class HomotopyExtraction(BaseMeanderScene):
+    top_blocks = (7, 10, 6, 5)
+    bottom_blocks = (7, 3, 4, 3, 1, 2, 2, 2, 1, 3)
+    action = "homotopy_extraction"
+
+
 # Rotation Contraction
 class RotationContractionReference(BaseMeanderScene):
     top_blocks = (8, 5)

@@ -531,3 +531,80 @@ class MeanderElement(VGroup):
                 break
             moves.append(move)
         return moves
+
+    def homotopy_extraction_animation(self, scene: MovingCameraScene) -> list[int]:
+        """Collapse each deleted component into its value, then insert it in H."""
+        values: list[int] = []
+        label: VGroup | None = None
+        frame = scene.camera.frame
+
+        def pin_to_viewport(mob: Mobject) -> None:
+            scale = frame.width / config.frame_width
+            mob.scale_to_fit_width(label_width * scale)
+            mob.move_to(
+                frame.get_top() - UP * (0.25 * scale + mob.height / 2)
+            )
+
+        while self.meander.n > 0:
+            if self.meander.top_blocks[0] != self.meander.bottom_blocks[0]:
+                self.wind_step_animation(scene)
+                continue
+
+            values.append(self.meander.top_blocks[0])
+            removing_arcs, removing_nodes = self.get_first_component_elements()
+            deleting = VGroup(*removing_arcs, *removing_nodes)
+            deleting.suspend_updating()
+            number = MathTex(str(values[-1])).set_z_index(100)
+            number.scale(frame.width / config.frame_width)
+            number.move_to(deleting.get_center())
+            # Both stages use explicit shared timing: no short default Write.
+            scene.play(ShrinkToCenter(deleting), Write(number), run_time=2.0)
+            self.cleanup_after_component_deletion(scene=scene)
+            self.meander, _ = self.meander._component_deletion()
+            scene.remove(deleting)
+
+            tokens = ["H("]
+            for index, value in enumerate(values):
+                if index:
+                    tokens.append(",")
+                tokens.append(str(value))
+            tokens.append(")")
+            target = MathTex(*tokens, arg_separator="").set_z_index(100)
+            label_width = min(target.width, config.frame_width * 0.9)
+            pin_to_viewport(target)
+            number_index = len(target) - 2
+            animations = [
+                number.animate.match_width(target[number_index]).move_to(
+                    target[number_index]
+                )
+            ]
+            if label is None:
+                punctuation = [target[0], target[-1]]
+                members = [target[0], number, target[-1]]
+            else:
+                label.clear_updaters()
+                # Preserve every existing glyph; only its position/size changes.
+                for old, destination in zip(label[:-1], target[:len(label) - 1]):
+                    animations.append(
+                        old.animate.match_width(destination).move_to(destination)
+                    )
+                animations.append(
+                    label[-1].animate.match_width(target[-1]).move_to(target[-1])
+                )
+                punctuation = [target[-3]]
+                members = [*label[:-1], target[-3], number, label[-1]]
+            scene.play(
+                *animations, *(FadeIn(mob) for mob in punctuation), run_time=2.0
+            )
+            scene.remove(number, *punctuation)
+            if label is not None:
+                scene.remove(label)
+            label = VGroup(*members).set_z_index(100)
+            scene.add(label)
+            label.add_updater(pin_to_viewport)
+            scene.wait(0.5)
+            if self.nodes:
+                scene.play(self.compact_and_fit_camera_animation(scene))
+            _clean_empty_scene_mobjects(scene)
+
+        return values

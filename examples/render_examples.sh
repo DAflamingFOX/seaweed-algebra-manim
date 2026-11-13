@@ -25,3 +25,6 @@ uv run manim -qm --disable_caching --format=gif -o flip-secondary examples.py Fl
 # Block Elimination
 uv run manim -qm --disable_caching --format=gif -o block_elimination-reference examples.py BlockEliminationReference
 uv run manim -qm --disable_caching --format=gif -o block_elimination-secondary examples.py BlockEliminationSecondary
+
+# Block Annotations
+uv run manim -qm --disable_caching --format=gif -o show_blocks examples.py ShowBlocks

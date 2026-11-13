@@ -44,6 +44,12 @@ Below, `Meander([17, 3], [10, 4, 6])` winds down across 6 successive moves: Rota
 | :---: | :---: |
 | ![Block Elimination - reference](./examples/media/videos/examples/720p30/block_elimination-reference.gif) | ![Block Elimination - secondary](./examples/media/videos/examples/720p30/block_elimination-secondary.gif) |
 
+### Additional Animations
+
+#### Show blocks
+
+![Show Blocks](./examples/media/videos/examples/720p30/show_blocks.gif)
+
 ## Usage
 
 See the [examples](./examples) folder for a demonstration on how to use the library.

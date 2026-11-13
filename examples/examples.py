@@ -92,3 +92,15 @@ class BlockEliminationSecondary(BaseMeanderScene):
     top_blocks = (6,)
     bottom_blocks = (3, 3)
     action = "block_elimination"
+
+
+class ShowBlocks(MovingCameraScene):
+    """Identify every block in the reference meander, including singletons."""
+
+    def construct(self):
+        m_elem = MeanderElement(Meander([17, 3], [10, 4, 6]))
+        self.add(m_elem)
+        m_elem.fit_camera(self)
+        self.wait(0.5)
+        m_elem.show_blocks_animation(self)
+        self.wait(0.5)

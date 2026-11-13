@@ -77,6 +77,84 @@ class MeanderElement(VGroup):
 
         return arcs
 
+    def show_blocks_animation(
+        self,
+        scene: Scene,
+        run_time: float = 1.0,
+        wait_time: float = 1.0,
+        *,
+        show_annotations: bool = True,
+    ) -> None:
+        """Show block bars, optionally with braces/labels, then fade them out."""
+        bars = VGroup()
+        annotations = VGroup()
+        spacing = (
+            (self.nodes[-1].get_x() - self.nodes[0].get_x())
+            / (len(self.nodes) - 1)
+            if len(self.nodes) > 1
+            else 1.0
+        )
+
+        for blocks, arcs, direction, symbol in (
+            (self.meander.top_blocks, self.top_arcs, UP, "a"),
+            (self.meander.bottom_blocks, self.btm_arcs, DOWN, "b"),
+        ):
+            if not blocks:
+                continue
+            if show_annotations:
+                heights = [
+                    node.get_critical_point(direction)[1] for node in self.nodes
+                ]
+                # Symmetric meander arcs reach their visible apex halfway along.
+                heights.extend(arc.point_from_proportion(0.5)[1] for arc in arcs)
+                edge_y = float(max(heights) if direction[1] > 0 else min(heights))
+                offset = 0
+                for index, size in enumerate(blocks, start=1):
+                    first = self.nodes[offset].get_center()
+                    last = self.nodes[offset + size - 1].get_center()
+                    left = np.array([first[0] - 0.4 * spacing, edge_y, 0.0])
+                    right = np.array([last[0] + 0.4 * spacing, edge_y, 0.0])
+                    brace = Brace(
+                        Line(left, right),
+                        direction=direction,
+                        buff=0.15 * spacing,
+                        color=WHITE,
+                    )
+                    label = MathTex(
+                        rf"{symbol}_{{{index}}}={size}", color=WHITE, font_size=56
+                    )
+                    label.scale(spacing)
+                    # Keep labels inside disjoint block spans, even for singletons.
+                    if label.width > right[0] - left[0]:
+                        label.scale_to_fit_width(right[0] - left[0])
+                    label.next_to(brace, direction, buff=0.12 * spacing)
+                    annotations.add(brace, label)
+                    offset += size
+
+            offset = 0
+            for size in blocks:
+                offset += size
+                if offset < len(self.nodes):
+                    boundary = (
+                        self.nodes[offset - 1].get_center()
+                        + self.nodes[offset].get_center()
+                    ) / 2
+                    bars.add(
+                        Line(
+                            boundary + direction * 0.18 * spacing,
+                            boundary + direction * 1.05 * spacing,
+                            color=WHITE,
+                            stroke_width=4,
+                        )
+                    )
+
+        scene.play(FadeIn(bars), run_time=run_time)
+        if show_annotations:
+            scene.play(FadeIn(annotations), run_time=run_time)
+        scene.wait(wait_time)
+        scene.play(FadeOut(VGroup(bars, annotations)), run_time=run_time)
+        _clean_empty_scene_mobjects(scene)
+
     def _retire_mobject(self, mob: Mobject, scene: Scene | None = None):
         """
         Safely removes a mobject from this VGroup AND the scene, clears updaters,

@@ -64,13 +64,6 @@ Shows the current meander and move while building the signature and homotopy.
 
 See the [examples](./examples) folder for a demonstration on how to use the library.
 
-## Architecture
-
-- **`MeanderElement`**: A `VGroup` representing the complete meander configuration (nodes and top/bottom arcs). Provides high-level move animations (`rotation_contraction_animation`, `pure_contraction_animation`, `component_deletion_animation`, `flip_animation`, `block_elimination_animation`), automated step dispatch (`wind_step_animation`, `wind_down_animation`), and camera management (`fit_camera`, `compact_and_fit_camera_animation`).
-- **`MeanderArc`**: A `VMobject` cubic Bézier arc that attaches dynamically to two `MeanderNode` instances. Computes control handles based on node tangent angles and automatically recomputes geometry via an updater.
-- **`MeanderNode`**: A `Dot` mobject representing an indexed meander node. Maintains internal tangent vectors and uses `move_along_arc` to travel smoothly along a connected Bézier trajectory while smoothly rotating its tangent vector.
-- **`MeanderFlip`**: A 3D rotation animation that flips the meander across the horizontal axis with updater suspension.
-
 ## Local Installation
 
 ### Prerequisites

@@ -5,6 +5,7 @@ cd "$(dirname "$0")"
 
 # Full Wind-Down
 uv run manim -qm --disable_caching --format=gif -o full_wind_down examples.py FullWindDown
+uv run manim -qm --disable_caching --format=gif -o advanced_wind_down examples.py AdvancedWindDown
 
 # Homotopy Extraction
 uv run manim -qm --disable_caching --format=gif -o homotopy_extraction examples.py HomotopyExtraction

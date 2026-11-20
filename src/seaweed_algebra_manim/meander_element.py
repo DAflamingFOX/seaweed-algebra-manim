@@ -34,6 +34,8 @@ class MeanderFlip(Rotate):
 
 
 class MeanderElement(VGroup):
+    _camera_width_scale = 1.0
+
     def __init__(self, meander: Meander, **kwargs):
         super().__init__(**kwargs)
 
@@ -367,7 +369,7 @@ class MeanderElement(VGroup):
             max(self.meander.top_blocks, default=1),
             max(self.meander.bottom_blocks, default=1),
         )
-        return max(max_blocks * 2, self.meander.n + 2)
+        return self._camera_width_scale * max(max_blocks * 2, self.meander.n + 2)
 
     def fit_camera(self, scene: Scene) -> None:
         scene.camera.frame.move_to(self.get_center())  # type: ignore
@@ -531,6 +533,160 @@ class MeanderElement(VGroup):
                 break
             moves.append(move)
         return moves
+
+    def advanced_wind_down_animation(self, scene: MovingCameraScene) -> None:
+        """Wind down this meander while displaying its signature and homotopy."""
+        previous_scale = self._camera_width_scale
+        self._camera_width_scale = 1.4
+        try:
+            self.fit_camera(scene)
+            self._animate_advanced_wind_down(scene)
+        finally:
+            self._camera_width_scale = previous_scale
+
+    def _animate_advanced_wind_down(self, scene: MovingCameraScene) -> None:
+        initial = self.meander
+        frame = scene.camera.frame
+        header_y = 3.15
+
+        def viewport_point(x: float, y: float) -> np.ndarray:
+            return frame.get_center() + np.array([x, y, 0.0]) * (
+                frame.width / config.frame_width
+            )
+
+        def meander_label_for(meander: Meander) -> MathTex:
+            if meander.n:
+                top = "|".join(map(str, meander.top_blocks))
+                bottom = "|".join(map(str, meander.bottom_blocks))
+                tex = rf"M\!\left(\frac{{{top}}}{{{bottom}}}\right)"
+            else:
+                tex = r"M(\varnothing)"
+            label = MathTex(tex, font_size=38, color=BLUE)
+            if label.width > 8:
+                label.scale_to_fit_width(8)
+            label.scale(frame.width / config.frame_width)
+            label.move_to(
+                viewport_point(-config.frame_width / 2 + 0.5, header_y),
+                aligned_edge=LEFT,
+            )
+            return label
+
+        def append_to_row(
+            row: VGroup,
+            entry: MathTex,
+            y: float,
+            source: Mobject,
+            *,
+            homotopy: bool = False,
+        ) -> list[Animation]:
+            """Reflow existing glyphs and slide an entry into the growing row."""
+            scale = frame.width / config.frame_width
+            comma = MathTex(",", font_size=34).scale(scale) if homotopy and len(row) > 2 else None
+            members = list(row[:-1] if homotopy else row)
+            if comma is not None:
+                members.append(comma)
+            members.append(entry)
+            if homotopy:
+                members.append(row[-1])
+            target = MathTex(
+                *(mob.tex_string for mob in members), arg_separator="", font_size=34
+            ).scale(scale)
+            if target.width > 12.5 * scale:
+                target.scale_to_fit_width(12.5 * scale)
+            target.move_to(viewport_point(-config.frame_width / 2 + 0.5, y), aligned_edge=LEFT)
+
+            animations: list[Animation] = []
+            for mob, destination in zip(members, target):
+                if mob is comma:
+                    mob.match_width(destination).move_to(destination)
+                    animations.append(FadeIn(mob))
+                elif mob is entry:
+                    mob.match_width(destination).move_to(destination)
+                    animations.append(TransformFromCopy(source, mob))
+                else:
+                    animations.append(
+                        mob.animate.match_width(destination).move_to(destination)
+                    )
+            row.remove(*row.submobjects)
+            row.add(*members)
+            return animations
+
+        # The invisible frame gives the HUD stable bounds even as its text changes.
+        # One updater transforms the entire overlay with the moving camera.
+        hud = VGroup(
+            Rectangle(
+                width=config.frame_width,
+                height=config.frame_height,
+                stroke_opacity=0,
+                fill_opacity=0,
+            )
+        )
+        meander_label = meander_label_for(initial)
+        signature_row = VGroup(MathTex(r"\text{Signature: }\;", font_size=34))
+        homotopy_row = VGroup(
+            *MathTex(r"\text{Homotopy: }\;H(", ")", arg_separator="", font_size=34)
+        )
+        for row, y in ((signature_row, -2.85), (homotopy_row, -3.5)):
+            row.move_to([-config.frame_width / 2 + 0.5, y, 0], aligned_edge=LEFT)
+        hud.add(signature_row, homotopy_row)
+        hud.scale(frame.width / config.frame_width)
+        hud.move_to(frame.get_center())
+        hud.add(meander_label)
+        hud.set_z_index(100)
+
+        def pin_to_viewport(mob: VGroup) -> None:
+            mob.scale(frame.width / mob[0].width)
+            mob.shift(frame.get_center() - mob[0].get_center())
+
+        hud.add_updater(pin_to_viewport)
+        scene.add(hud)
+
+        # The algebra generator supplies the move labels; MeanderElement performs
+        # the corresponding geometry and maintains its own current Meander.
+        for move, deletion in initial._wind_down():
+            name = move.name.replace("_", " ").title()
+            suffix = rf"\;({deletion})" if deletion else ""
+            current_move = MathTex(rf"\text{{{name}}}{suffix}", font_size=38, color=YELLOW)
+            scale = frame.width / config.frame_width
+            current_move.scale(scale)
+            current_move.move_to(
+                viewport_point(config.frame_width / 2 - 0.5, header_y),
+                aligned_edge=RIGHT,
+            )
+            current_move.set_z_index(100)
+            hud.add(current_move)
+            scene.play(FadeIn(current_move), run_time=0.5)
+            scene.wait(0.4)
+            self.wind_step_animation(scene)
+
+            hud.remove(current_move)
+            scene.add(current_move)
+            symbol = rf"C({deletion})" if deletion else rf"\mathrm{{{move.value}}}"
+            entry = MathTex(symbol, font_size=34, color=YELLOW).set_z_index(100)
+            animations = append_to_row(signature_row, entry, -2.85, current_move)
+            if deletion:
+                value = MathTex(str(deletion), font_size=34, color=YELLOW).set_z_index(100)
+                animations.extend(
+                    append_to_row(homotopy_row, value, -3.5, current_move, homotopy=True)
+                )
+            animations.append(FadeOut(current_move))
+            scene.play(*animations, run_time=1.3)
+
+            next_label = meander_label_for(self.meander).set_z_index(100)
+            scene.play(ReplacementTransform(meander_label, next_label), run_time=0.9)
+            meander_label = next_label
+            scene.wait(0.5)
+
+        complete = MathTex(r"\text{Complete}", font_size=30)
+        complete.scale(frame.width / config.frame_width)
+        complete.move_to(
+            viewport_point(config.frame_width / 2 - 0.5, header_y),
+            aligned_edge=RIGHT,
+        )
+        complete.set_z_index(100)
+        hud.add(complete)
+        scene.play(FadeIn(complete), run_time=0.5)
+        scene.wait(2)
 
     def homotopy_extraction_animation(self, scene: MovingCameraScene) -> list[int]:
         """Collapse each deleted component into its value, then insert it in H."""

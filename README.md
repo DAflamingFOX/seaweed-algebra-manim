@@ -12,6 +12,12 @@ Below, `Meander([17, 3], [10, 4, 6])` winds down across 6 successive moves: Rota
 
 ![Full Wind-Down](./examples/media/videos/examples/720p30/full_wind_down.gif)
 
+### Advanced Wind-Down Sequence
+
+Shows the current meander and move while building the signature and homotopy.
+
+![Advanced Wind-Down](./examples/media/videos/examples/720p30/advanced_wind_down.gif)
+
 ### Single Winding Moves
 
 #### Rotation Contraction

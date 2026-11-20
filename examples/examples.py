@@ -8,14 +8,16 @@ class BaseMeanderScene(MovingCameraScene):
     top_blocks: tuple[int, ...] = ()
     bottom_blocks: tuple[int, ...] = ()
     action: str = ""
+    opening_hold: float = 1.0
 
     def construct(self):
         m = Meander(list(self.top_blocks), list(self.bottom_blocks))
         m_elem = MeanderElement(m)
         self.add(m_elem)
 
-        m_elem.fit_camera(self)
-        self.wait(1)
+        if self.opening_hold:
+            m_elem.fit_camera(self)
+            self.wait(self.opening_hold)
 
         # Abuse python a bit, this calls m_elem.action_animation, where "action"
         # is the start of the name of the function to call, postfixed with "_animation".
@@ -27,6 +29,13 @@ class FullWindDown(BaseMeanderScene):
     top_blocks = (17, 3)
     bottom_blocks = (10, 4, 6)
     action = "wind_down"
+
+
+class AdvancedWindDown(BaseMeanderScene):
+    top_blocks = (17, 3)
+    bottom_blocks = (10, 4, 6)
+    action = "advanced_wind_down"
+    opening_hold = 0.0  # The animation sets up its own camera and overlay.
 
 
 # Homotopy Extraction

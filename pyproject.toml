@@ -33,10 +33,13 @@ build-backend = "uv_build"
 [tool.ruff.lint]
 extend-select = ["I"]
 [tool.ruff.lint.per-file-ignores]
+"src/seaweed_algebra_manim/*.py" = ["F403", "F405"]
+"examples/examples.py" = ["F403", "F405"]
 "*.ipynb" = ["F401", "F403"]
 
 [tool.pyright]
 include = ["src"]
 typeCheckingMode = "standard"
+reportWildcardImportFromLibrary = "none"
 venvPath = "."
 venv = ".venv"

@@ -1,40 +1,14 @@
 from __future__ import annotations
 
 import numpy as np
-from manim import *  # pyright: ignore[reportWildcardImportFromLibrary]
+from manim import *
 from seaweed_algebra import Meander
 
 from .meander_arc import MeanderArc, MeanderNode
 
 
-def _clean_empty_scene_mobjects(scene: Scene) -> None:
-    cam_frame = getattr(scene.camera, "frame", None)
-    empty = [
-        m
-        for m in scene.mobjects
-        if not m.submobjects and len(m.points) == 0 and m is not cam_frame
-    ]
-    if empty:
-        scene.remove(*empty)
-
-
-class MeanderFlip(Rotate):
-    def __init__(self, mobject: MeanderElement, **kwargs):
-        kwargs.setdefault("angle", PI)
-        kwargs.setdefault("axis", RIGHT)
-        kwargs.setdefault("about_point", ORIGIN)
-        super().__init__(mobject, **kwargs)
-        self.suspend_mobject_updating = False
-
-    def begin(self) -> None:
-        mobj: MeanderElement = self.mobject  # type: ignore
-        for arc in mobj.top_arcs + mobj.btm_arcs:
-            arc.suspend_updating()
-        super().begin()
-
-
 class MeanderElement(VGroup):
-    _camera_width_scale = 1.0
+    """Live Manim geometry and topology for a meander."""
 
     def __init__(self, meander: Meander, **kwargs):
         super().__init__(**kwargs)
@@ -79,106 +53,14 @@ class MeanderElement(VGroup):
 
         return arcs
 
-    def show_blocks_animation(
-        self,
-        scene: Scene,
-        run_time: float = 1.0,
-        wait_time: float = 1.0,
-        *,
-        show_annotations: bool = True,
-    ) -> None:
-        """Show block bars, optionally with braces/labels, then fade them out."""
-        bars = VGroup()
-        annotations = VGroup()
-        spacing = (
-            (self.nodes[-1].get_x() - self.nodes[0].get_x())
-            / (len(self.nodes) - 1)
-            if len(self.nodes) > 1
-            else 1.0
-        )
-
-        for blocks, arcs, direction, symbol in (
-            (self.meander.top_blocks, self.top_arcs, UP, "a"),
-            (self.meander.bottom_blocks, self.btm_arcs, DOWN, "b"),
-        ):
-            if not blocks:
-                continue
-            if show_annotations:
-                heights = [
-                    node.get_critical_point(direction)[1] for node in self.nodes
-                ]
-                # Symmetric meander arcs reach their visible apex halfway along.
-                heights.extend(arc.point_from_proportion(0.5)[1] for arc in arcs)
-                edge_y = float(max(heights) if direction[1] > 0 else min(heights))
-                offset = 0
-                for index, size in enumerate(blocks, start=1):
-                    first = self.nodes[offset].get_center()
-                    last = self.nodes[offset + size - 1].get_center()
-                    left = np.array([first[0] - 0.4 * spacing, edge_y, 0.0])
-                    right = np.array([last[0] + 0.4 * spacing, edge_y, 0.0])
-                    brace = Brace(
-                        Line(left, right),
-                        direction=direction,
-                        buff=0.15 * spacing,
-                        color=WHITE,
-                    )
-                    label = MathTex(
-                        rf"{symbol}_{{{index}}}={size}", color=WHITE, font_size=56
-                    )
-                    label.scale(spacing)
-                    # Keep labels inside disjoint block spans, even for singletons.
-                    if label.width > right[0] - left[0]:
-                        label.scale_to_fit_width(right[0] - left[0])
-                    label.next_to(brace, direction, buff=0.12 * spacing)
-                    annotations.add(brace, label)
-                    offset += size
-
-            offset = 0
-            for size in blocks:
-                offset += size
-                if offset < len(self.nodes):
-                    boundary = (
-                        self.nodes[offset - 1].get_center()
-                        + self.nodes[offset].get_center()
-                    ) / 2
-                    bars.add(
-                        Line(
-                            boundary + direction * 0.18 * spacing,
-                            boundary + direction * 1.05 * spacing,
-                            color=WHITE,
-                            stroke_width=4,
-                        )
-                    )
-
-        scene.play(FadeIn(bars), run_time=run_time)
-        if show_annotations:
-            scene.play(FadeIn(annotations), run_time=run_time)
-        scene.wait(wait_time)
-        scene.play(FadeOut(VGroup(bars, annotations)), run_time=run_time)
-        _clean_empty_scene_mobjects(scene)
-
-    def _retire_mobject(self, mob: Mobject, scene: Scene | None = None):
-        """
-        Safely removes a mobject from this VGroup AND the scene, clears updaters,
-        and hides it.
-        """
+    def _retire_mobject(self, mob: Mobject) -> None:
         mob.clear_updaters()
         mob.set_opacity(0)
         mob.clear_points()
         self.remove(mob)
-        if scene is not None:
-            scene.remove(mob)
 
-    def cleanup_after_collapse(self, tol: float = 1e-2, scene: Scene | None = None):
-        """
-        Call right after self.play(...) of a collapse/rotation move.
-        1. Retires all collapsed arcs with coincident endpoints.
-        2. Merges overlapping nodes and re-links surviving arcs.
-        3. Retires any arcs that collapsed due to node merging.
-        4. Resets node tangents to vertical (PI/2) and clears old arc pointers.
-        5. Normalizes flipped arcs and re-registers them with their nodes.
-        6. Sorts surviving nodes left-to-right and re-indexes 0..N-1.
-        """
+    def _merge_collapsed_geometry(self, *, tol: float = 1e-2) -> None:
+        """Merge coincident nodes and restore the topology of surviving arcs."""
         # 1. Retire collapsed arcs (endpoints coincident)
         all_arcs = self.top_arcs + self.btm_arcs
         surviving_arcs: list[MeanderArc] = []
@@ -187,7 +69,7 @@ class MeanderElement(VGroup):
                 np.linalg.norm(arc.left_node.get_center() - arc.right_node.get_center())
             )
             if dist < tol:
-                self._retire_mobject(arc, scene=scene)
+                self._retire_mobject(arc)
             else:
                 surviving_arcs.append(arc)
 
@@ -203,7 +85,7 @@ class MeanderElement(VGroup):
             if merged_target is not None:
                 for arc in surviving_arcs:
                     arc.replace_node(node, merged_target)
-                self._retire_mobject(node, scene=scene)
+                self._retire_mobject(node)
             else:
                 surviving_nodes.append(node)
 
@@ -214,7 +96,7 @@ class MeanderElement(VGroup):
                 np.linalg.norm(arc.left_node.get_center() - arc.right_node.get_center())
             )
             if arc.left_node is arc.right_node or dist < tol:
-                self._retire_mobject(arc, scene=scene)
+                self._retire_mobject(arc)
             else:
                 active_arcs.append(arc)
         surviving_arcs = active_arcs
@@ -248,49 +130,7 @@ class MeanderElement(VGroup):
         for arc in surviving_arcs:
             arc.update()
 
-    def slide_to_compact(self, start_x: float = 0.0, **kwargs) -> AnimationGroup:
-        """
-        Slides all surviving nodes horizontally to contiguous integer coordinates
-        (start_x, start_x + 1, ...), eliminating any gaps.
-        """
-        anims = []
-        for i, node in enumerate(self.nodes):
-            target_x = start_x + i
-            if abs(node.get_center()[0] - target_x) > 1e-4:
-                anims.append(node.animate.move_to((target_x, 0, 0)))
-        return AnimationGroup(*anims, **kwargs)
-
-    def rotation_contraction(self, **kwargs) -> AnimationGroup:
-        a1 = self.meander.top_blocks[0]
-        b1 = self.meander.bottom_blocks[0]
-        num_collapsing = a1 - b1
-        center_b1 = (b1 - 1) / 2.0
-
-        anims: list[Animation] = [
-            node.move_along_arc(is_top=True) for node in self.nodes[:num_collapsing]
-        ]
-
-        for i in range(num_collapsing, b1):
-            node = self.nodes[i]
-            if i < center_b1:
-                anims.append(node.move_along_arc(is_top=True))
-            elif i == center_b1:
-                anims.append(node.rotate_in_place())
-            else:
-                anims.append(node.move_along_arc(is_top=False))
-
-        return AnimationGroup(*anims, **kwargs)
-
-    def pure_contraction(self, **kwargs) -> AnimationGroup:
-        b1 = self.meander.bottom_blocks[0]
-        return AnimationGroup(
-            *(node.move_along_arc(is_top=True) for node in self.nodes[:b1]),
-            **kwargs,
-        )
-
-    def get_first_component_elements(
-        self,
-    ) -> tuple[list[MeanderArc], list[MeanderNode]]:
+    def _first_component_elements(self) -> tuple[list[MeanderArc], list[MeanderNode]]:
         """
         Returns (arcs, nodes) belonging to the first a1/b1 component.
         Requires a1 == b1.
@@ -310,23 +150,13 @@ class MeanderElement(VGroup):
         ]
         return removing_arcs, removing_nodes
 
-    def component_deletion(self, **kwargs) -> AnimationGroup:
-        removing_arcs, removing_nodes = self.get_first_component_elements()
-        return AnimationGroup(
-            *(FadeOut(mob) for mob in (*removing_arcs, *removing_nodes)),
-            **kwargs,
-        )
-
-    def cleanup_after_component_deletion(self, scene: Scene | None = None) -> None:
-        """
-        Retires the deleted first a1/b1 nodes and arcs, adjusts internal lists,
-        and re-indexes surviving nodes.
-        """
-        removing_arcs, removing_nodes = self.get_first_component_elements()
+    def _retire_component(
+        self, removing_arcs: list[MeanderArc], removing_nodes: list[MeanderNode]
+    ) -> None:
         removing_arc_set = set(removing_arcs)
 
-        for mob in list(removing_arcs) + list(removing_nodes):
-            self._retire_mobject(mob, scene=scene)
+        for mob in (*removing_arcs, *removing_nodes):
+            self._retire_mobject(mob)
         self.nodes = self.nodes[len(removing_nodes) :]
         self.top_arcs = [arc for arc in self.top_arcs if arc not in removing_arc_set]
         self.btm_arcs = [arc for arc in self.btm_arcs if arc not in removing_arc_set]
@@ -334,14 +164,8 @@ class MeanderElement(VGroup):
         for new_idx, node in enumerate(self.nodes):
             node.idx = new_idx
 
-    def flip(self, **kwargs) -> Animation:  # pyright: ignore[reportIncompatibleMethodOverride]
-        return MeanderFlip(self, **kwargs)
-
-    def cleanup_after_flip(self) -> None:
-        """
-        Swaps internal top/bottom arc references, inverts arc.is_top flags,
-        swaps node top/btm arc pointers, and resumes arc updaters.
-        """
+    def _flip_geometry(self) -> None:
+        """Swap arc sides and resume the updaters suspended by the flip."""
         for arc in self.top_arcs + self.btm_arcs:
             arc.is_top = not arc.is_top
 
@@ -353,414 +177,3 @@ class MeanderElement(VGroup):
         for arc in self.top_arcs + self.btm_arcs:
             arc.resume_updating()
             arc.update()
-
-    def block_elimination(self, **kwargs) -> AnimationGroup:
-        num_eliminating = self.meander.bottom_blocks[0]
-        return AnimationGroup(
-            *(
-                node.move_along_arc(is_top=True)
-                for node in self.nodes[:num_eliminating]
-            ),
-            **kwargs,
-        )
-
-    def _get_camera_width(self) -> float:
-        max_blocks = max(
-            max(self.meander.top_blocks, default=1),
-            max(self.meander.bottom_blocks, default=1),
-        )
-        return self._camera_width_scale * max(max_blocks * 2, self.meander.n + 2)
-
-    def fit_camera(self, scene: Scene) -> None:
-        scene.camera.frame.move_to(self.get_center())  # type: ignore
-        scene.camera.frame.width = self._get_camera_width()  # type: ignore
-
-    def fit_camera_animation(
-        self,
-        scene: Scene,
-        target_center: np.ndarray | None = None,
-        **kwargs,
-    ) -> Animation:
-        center = self.get_center() if target_center is None else target_center
-        return (
-            scene.camera.frame.animate(**kwargs)  # type: ignore
-            .move_to(center)
-            .set(width=self._get_camera_width())
-        )
-
-    def compact_and_fit_camera_animation(
-        self,
-        scene: Scene,
-        start_x: float = 0.0,
-        run_time: float = 1.5,
-        **kwargs,
-    ) -> Animation:
-        """
-        Simultaneously slides all surviving nodes to contiguous integer positions
-        (start_x, start_x + 1, ...) and recenters/zooms the camera in a single smooth motion.
-        """
-        slide_anim = self.slide_to_compact(start_x=start_x, run_time=run_time, **kwargs)
-        target_center = (
-            np.array([start_x + (len(self.nodes) - 1) / 2.0, 0.0, 0.0])
-            if self.nodes
-            else ORIGIN
-        )
-        cam_anim = self.fit_camera_animation(
-            scene, target_center=target_center, run_time=run_time, **kwargs
-        )
-        if not slide_anim.animations:
-            return cam_anim
-        return AnimationGroup(slide_anim, cam_anim)
-
-    def _play_collapse_animation(
-        self,
-        scene: Scene,
-        action_anim: AnimationGroup,
-        next_meander: Meander,
-        run_time: float = 2.0,
-        wait_time: float = 0.5,
-    ) -> None:
-        scene.play(Succession(action_anim, Wait(wait_time)))
-        self.cleanup_after_collapse(scene=scene)
-        self.meander = next_meander
-        if self.nodes:
-            scene.play(self.compact_and_fit_camera_animation(scene, run_time=run_time))
-        _clean_empty_scene_mobjects(scene)
-
-    def rotation_contraction_animation(
-        self,
-        scene: Scene,
-        run_time: float = 2.0,
-        wait_time: float = 0.5,
-    ) -> None:
-        self._play_collapse_animation(
-            scene,
-            self.rotation_contraction(run_time=run_time),
-            self.meander._rotation_contraction(),
-            run_time=run_time,
-            wait_time=wait_time,
-        )
-
-    def pure_contraction_animation(
-        self,
-        scene: Scene,
-        run_time: float = 2.0,
-        wait_time: float = 0.5,
-    ) -> None:
-        self._play_collapse_animation(
-            scene,
-            self.pure_contraction(run_time=run_time),
-            self.meander._pure_contraction(),
-            run_time=run_time,
-            wait_time=wait_time,
-        )
-
-    def component_deletion_animation(
-        self,
-        scene: Scene,
-        run_time: float = 2.0,
-        wait_time: float = 0.5,
-    ) -> None:
-        scene.play(
-            Succession(self.component_deletion(run_time=run_time), Wait(wait_time))
-        )
-        self.cleanup_after_component_deletion(scene=scene)
-        self.meander, _ = self.meander._component_deletion()
-        if self.nodes:
-            scene.play(self.compact_and_fit_camera_animation(scene, run_time=1.5))
-        _clean_empty_scene_mobjects(scene)
-
-    def flip_animation(
-        self,
-        scene: Scene,
-        run_time: float = 2.0,
-    ) -> None:
-        scene.play(self.flip(run_time=run_time))
-        self.meander = self.meander._flip()
-        self.cleanup_after_flip()
-        scene.play(self.fit_camera_animation(scene))
-        _clean_empty_scene_mobjects(scene)
-
-    def block_elimination_animation(
-        self,
-        scene: Scene,
-        run_time: float = 2.0,
-        wait_time: float = 0.5,
-    ) -> None:
-        self._play_collapse_animation(
-            scene,
-            self.block_elimination(run_time=run_time),
-            self.meander._block_elimination(),
-            run_time=run_time,
-            wait_time=wait_time,
-        )
-
-    def wind_step_animation(self, scene: Scene) -> Meander.Move | None:
-        """
-        Executes the next winding algorithm move on this meander.
-        Returns the Meander.Move executed, or None if the meander is empty.
-        """
-        if self.meander.n == 0:
-            return None
-
-        a1, b1 = self.meander.top_blocks[0], self.meander.bottom_blocks[0]
-        if a1 == b1:
-            self.component_deletion_animation(scene)
-            return Meander.Move.COMPONENT_DELETION
-        elif a1 < b1:
-            self.flip_animation(scene)
-            return Meander.Move.FLIP
-        elif a1 == 2 * b1:
-            self.block_elimination_animation(scene)
-            return Meander.Move.BLOCK_ELIMINATION
-        elif b1 < a1 < 2 * b1:
-            self.rotation_contraction_animation(scene)
-            return Meander.Move.ROTATION_CONTRACTION
-        elif a1 > 2 * b1:
-            self.pure_contraction_animation(scene)
-            return Meander.Move.PURE_CONTRACTION
-        else:
-            raise RuntimeError(f"No valid winding move for a1={a1}, b1={b1}")
-
-    def wind_down_animation(self, scene: Scene) -> list[Meander.Move]:
-        """
-        Continuously animates winding moves until the meander is completely wound down.
-        """
-        moves: list[Meander.Move] = []
-        while self.meander.n > 0:
-            move = self.wind_step_animation(scene)
-            if move is None:
-                break
-            moves.append(move)
-        return moves
-
-    def advanced_wind_down_animation(self, scene: MovingCameraScene) -> None:
-        """Wind down this meander while displaying its signature and homotopy."""
-        previous_scale = self._camera_width_scale
-        self._camera_width_scale = 1.4
-        try:
-            self.fit_camera(scene)
-            self._animate_advanced_wind_down(scene)
-        finally:
-            self._camera_width_scale = previous_scale
-
-    def _animate_advanced_wind_down(self, scene: MovingCameraScene) -> None:
-        initial = self.meander
-        frame = scene.camera.frame
-        header_y = 3.15
-
-        def viewport_point(x: float, y: float) -> np.ndarray:
-            return frame.get_center() + np.array([x, y, 0.0]) * (
-                frame.width / config.frame_width
-            )
-
-        def meander_label_for(meander: Meander) -> MathTex:
-            if meander.n:
-                top = "|".join(map(str, meander.top_blocks))
-                bottom = "|".join(map(str, meander.bottom_blocks))
-                tex = rf"M\!\left(\frac{{{top}}}{{{bottom}}}\right)"
-            else:
-                tex = r"M(\varnothing)"
-            label = MathTex(tex, font_size=38, color=BLUE)
-            if label.width > 8:
-                label.scale_to_fit_width(8)
-            label.scale(frame.width / config.frame_width)
-            label.move_to(
-                viewport_point(-config.frame_width / 2 + 0.5, header_y),
-                aligned_edge=LEFT,
-            )
-            return label
-
-        def append_to_row(
-            row: VGroup,
-            entry: MathTex,
-            y: float,
-            source: Mobject,
-            *,
-            homotopy: bool = False,
-        ) -> list[Animation]:
-            """Reflow existing glyphs and slide an entry into the growing row."""
-            scale = frame.width / config.frame_width
-            comma = MathTex(",", font_size=34).scale(scale) if homotopy and len(row) > 2 else None
-            members = list(row[:-1] if homotopy else row)
-            if comma is not None:
-                members.append(comma)
-            members.append(entry)
-            if homotopy:
-                members.append(row[-1])
-            target = MathTex(
-                *(mob.tex_string for mob in members), arg_separator="", font_size=34
-            ).scale(scale)
-            if target.width > 12.5 * scale:
-                target.scale_to_fit_width(12.5 * scale)
-            target.move_to(viewport_point(-config.frame_width / 2 + 0.5, y), aligned_edge=LEFT)
-
-            animations: list[Animation] = []
-            for mob, destination in zip(members, target):
-                if mob is comma:
-                    mob.match_width(destination).move_to(destination)
-                    animations.append(FadeIn(mob))
-                elif mob is entry:
-                    mob.match_width(destination).move_to(destination)
-                    animations.append(TransformFromCopy(source, mob))
-                else:
-                    animations.append(
-                        mob.animate.match_width(destination).move_to(destination)
-                    )
-            row.remove(*row.submobjects)
-            row.add(*members)
-            return animations
-
-        # The invisible frame gives the HUD stable bounds even as its text changes.
-        # One updater transforms the entire overlay with the moving camera.
-        hud = VGroup(
-            Rectangle(
-                width=config.frame_width,
-                height=config.frame_height,
-                stroke_opacity=0,
-                fill_opacity=0,
-            )
-        )
-        meander_label = meander_label_for(initial)
-        signature_row = VGroup(MathTex(r"\text{Signature: }\;", font_size=34))
-        homotopy_row = VGroup(
-            *MathTex(r"\text{Homotopy: }\;H(", ")", arg_separator="", font_size=34)
-        )
-        for row, y in ((signature_row, -2.85), (homotopy_row, -3.5)):
-            row.move_to([-config.frame_width / 2 + 0.5, y, 0], aligned_edge=LEFT)
-        hud.add(signature_row, homotopy_row)
-        hud.scale(frame.width / config.frame_width)
-        hud.move_to(frame.get_center())
-        hud.add(meander_label)
-        hud.set_z_index(100)
-
-        def pin_to_viewport(mob: VGroup) -> None:
-            mob.scale(frame.width / mob[0].width)
-            mob.shift(frame.get_center() - mob[0].get_center())
-
-        hud.add_updater(pin_to_viewport)
-        scene.add(hud)
-
-        # The algebra generator supplies the move labels; MeanderElement performs
-        # the corresponding geometry and maintains its own current Meander.
-        for move, deletion in initial._wind_down():
-            name = move.name.replace("_", " ").title()
-            suffix = rf"\;({deletion})" if deletion else ""
-            current_move = MathTex(rf"\text{{{name}}}{suffix}", font_size=38, color=YELLOW)
-            scale = frame.width / config.frame_width
-            current_move.scale(scale)
-            current_move.move_to(
-                viewport_point(config.frame_width / 2 - 0.5, header_y),
-                aligned_edge=RIGHT,
-            )
-            current_move.set_z_index(100)
-            hud.add(current_move)
-            scene.play(FadeIn(current_move), run_time=0.5)
-            scene.wait(0.4)
-            self.wind_step_animation(scene)
-
-            hud.remove(current_move)
-            scene.add(current_move)
-            symbol = rf"C({deletion})" if deletion else rf"\mathrm{{{move.value}}}"
-            entry = MathTex(symbol, font_size=34, color=YELLOW).set_z_index(100)
-            animations = append_to_row(signature_row, entry, -2.85, current_move)
-            if deletion:
-                value = MathTex(str(deletion), font_size=34, color=YELLOW).set_z_index(100)
-                animations.extend(
-                    append_to_row(homotopy_row, value, -3.5, current_move, homotopy=True)
-                )
-            animations.append(FadeOut(current_move))
-            scene.play(*animations, run_time=1.3)
-
-            next_label = meander_label_for(self.meander).set_z_index(100)
-            scene.play(ReplacementTransform(meander_label, next_label), run_time=0.9)
-            meander_label = next_label
-            scene.wait(0.5)
-
-        complete = MathTex(r"\text{Complete}", font_size=30)
-        complete.scale(frame.width / config.frame_width)
-        complete.move_to(
-            viewport_point(config.frame_width / 2 - 0.5, header_y),
-            aligned_edge=RIGHT,
-        )
-        complete.set_z_index(100)
-        hud.add(complete)
-        scene.play(FadeIn(complete), run_time=0.5)
-        scene.wait(2)
-
-    def homotopy_extraction_animation(self, scene: MovingCameraScene) -> list[int]:
-        """Collapse each deleted component into its value, then insert it in H."""
-        values: list[int] = []
-        label: VGroup | None = None
-        frame = scene.camera.frame
-
-        def pin_to_viewport(mob: Mobject) -> None:
-            scale = frame.width / config.frame_width
-            mob.scale_to_fit_width(label_width * scale)
-            mob.move_to(
-                frame.get_top() - UP * (0.25 * scale + mob.height / 2)
-            )
-
-        while self.meander.n > 0:
-            if self.meander.top_blocks[0] != self.meander.bottom_blocks[0]:
-                self.wind_step_animation(scene)
-                continue
-
-            values.append(self.meander.top_blocks[0])
-            removing_arcs, removing_nodes = self.get_first_component_elements()
-            deleting = VGroup(*removing_arcs, *removing_nodes)
-            deleting.suspend_updating()
-            number = MathTex(str(values[-1])).set_z_index(100)
-            number.scale(frame.width / config.frame_width)
-            number.move_to(deleting.get_center())
-            # Both stages use explicit shared timing: no short default Write.
-            scene.play(ShrinkToCenter(deleting), Write(number), run_time=2.0)
-            self.cleanup_after_component_deletion(scene=scene)
-            self.meander, _ = self.meander._component_deletion()
-            scene.remove(deleting)
-
-            tokens = ["H("]
-            for index, value in enumerate(values):
-                if index:
-                    tokens.append(",")
-                tokens.append(str(value))
-            tokens.append(")")
-            target = MathTex(*tokens, arg_separator="").set_z_index(100)
-            label_width = min(target.width, config.frame_width * 0.9)
-            pin_to_viewport(target)
-            number_index = len(target) - 2
-            animations = [
-                number.animate.match_width(target[number_index]).move_to(
-                    target[number_index]
-                )
-            ]
-            if label is None:
-                punctuation = [target[0], target[-1]]
-                members = [target[0], number, target[-1]]
-            else:
-                label.clear_updaters()
-                # Preserve every existing glyph; only its position/size changes.
-                for old, destination in zip(label[:-1], target[:len(label) - 1]):
-                    animations.append(
-                        old.animate.match_width(destination).move_to(destination)
-                    )
-                animations.append(
-                    label[-1].animate.match_width(target[-1]).move_to(target[-1])
-                )
-                punctuation = [target[-3]]
-                members = [*label[:-1], target[-3], number, label[-1]]
-            scene.play(
-                *animations, *(FadeIn(mob) for mob in punctuation), run_time=2.0
-            )
-            scene.remove(number, *punctuation)
-            if label is not None:
-                scene.remove(label)
-            label = VGroup(*members).set_z_index(100)
-            scene.add(label)
-            label.add_updater(pin_to_viewport)
-            scene.wait(0.5)
-            if self.nodes:
-                scene.play(self.compact_and_fit_camera_animation(scene))
-            _clean_empty_scene_mobjects(scene)
-
-        return values

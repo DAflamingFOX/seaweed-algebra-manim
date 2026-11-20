@@ -4,7 +4,7 @@ import copy
 from typing import Any, Self
 
 import numpy as np
-from manim import *  # pyright: ignore[reportWildcardImportFromLibrary]
+from manim import *
 
 
 class MeanderNode(Dot):

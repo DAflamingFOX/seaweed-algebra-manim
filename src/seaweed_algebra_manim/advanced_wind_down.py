@@ -139,7 +139,7 @@ def play_advanced_wind_down(animator: MeanderAnimator) -> None:
         # as the source for the history transforms and fading it out.
         hud.remove(current_move)
         scene.add(current_move)
-        symbol = rf"C({deletion})" if deletion else rf"\mathrm{{{move.value}}}"
+        symbol = rf"\mathrm{{C}}({deletion})" if deletion else rf"\mathrm{{{move.value}}}"
         entry = MathTex(symbol, font_size=34, color=YELLOW).set_z_index(100)
         animations = append_to_row(signature_row, entry, -2.85, current_move)
         if deletion:
